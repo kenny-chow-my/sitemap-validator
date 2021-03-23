@@ -1,0 +1,99 @@
+From 9571325aad882e9393a204de0839030f286aab42 Mon Sep 17 00:00:00 2001
+From: "Chow, Kenny" <kenny@chow.my>
+Date: Tue, 23 Mar 2021 10:28:18 +0800
+Subject: [PATCH] added bit more debug logs, run from app.js and allow non .xml
+ endings
+
+---
+ app.js            | 20 ++++++++++++++++++++
+ lib/validate.js   | 10 +++++++---
+ package-lock.json |  2 +-
+ 3 files changed, 28 insertions(+), 4 deletions(-)
+ create mode 100644 app.js
+
+diff --git a/app.js b/app.js
+new file mode 100644
+index 0000000..77a932d
+--- /dev/null
++++ b/app.js
+@@ -0,0 +1,20 @@
++var argv = require('yargs')
++      .usage('Validates that the URLs in a sitemap are correct')
++      .example('$0 -l http://www.sitename.com/sitemap.xml -c 200')
++      .demand('l')
++      .demand('c')
++      .describe('l', 'The URL to the sitemap.xml file')
++      .describe('c', 'The successful http return code, typically 200')
++      .describe('r', 'remap the sitemap URLs to another domain')
++      .describe('s', 'source domain for remapping')
++      .describe('d', 'destination for domain remapping')
++      .alias('l', 'location')
++      .alias('c', 'code')
++      .alias('s', 'source')
++      .alias('d', 'destination')
++      .version('0.5.1', 'v')
++      .argv
++
++var validate = require('./lib/validate');
++
++validate.CheckSitemap(argv.l, argv.c, argv.s, argv.d, function(){ });
+\ No newline at end of file
+diff --git a/lib/validate.js b/lib/validate.js
+index fd7b67a..eb019fb 100644
+--- a/lib/validate.js
++++ b/lib/validate.js
+@@ -21,6 +21,7 @@ var q = async.queue(function (task, next) {
+ }, 4);
+ 
+ exports.CheckSitemap = function(url, code, source, destination, callback){
++  var urlCount = 0;
+   request.get(url, function(error, response, body){
+     if(error) {
+       throw err;
+@@ -58,9 +59,10 @@ exports.CheckSitemap = function(url, code, source, destination, callback){
+           {
+             var testurl = result['urlset']['url'][prop].loc[0];
+             q.push({url: testurl, code: code, type: 'url', source: source, destination: destination});
++            urlCount++;
+           }
+       }
+-
++      console.log("Retrieved URL: ", urlCount);
+       callback();
+       return;
+ 
+@@ -122,7 +124,7 @@ function validateUrl(task, callback){
+ 
+   request.get({url: replacedUrl, followRedirect: false, timeout: 30000}, function(error, resp, body){
+     if(error) {
+-      console.log('Bad URL, ' + task.url);
++      console.log('Bad URL, ', task.url, error);
+       callback();
+       return;
+     }
+@@ -130,7 +132,9 @@ function validateUrl(task, callback){
+     if(resp.statusCode != task.code) {
+       console.log(resp.statusCode + "," + task.url);
+     }
+-
++    else{
++      process.stdout.write(".");
++    }
+     callback();
+   });
+ }
+diff --git a/package-lock.json b/package-lock.json
+index 6db07f0..82c0b9b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "sitemap-validator",
+-  "version": "0.5.2",
++  "version": "0.5.3",
+   "lockfileVersion": 1,
+   "requires": true,
+   "dependencies": {
+-- 
+2.30.0.windows.1
+
